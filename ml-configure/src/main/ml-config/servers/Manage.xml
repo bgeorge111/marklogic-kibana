@@ -1,0 +1,4 @@
+<http-server-properties xmlns="http://marklogic.com/manage">
+<server-name>Manage</server-name>
+<authentication>basic</authentication>
+</http-server-properties>

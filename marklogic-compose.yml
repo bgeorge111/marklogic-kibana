@@ -1,0 +1,39 @@
+version: '3.7'
+services:
+  marklogic1001:
+    image: ${_ML_IMAGE}
+    build:
+      context: .
+      dockerfile: marklogic/Dockerfile    
+    deploy: 
+        resources:
+            limits:
+                memory: 32G
+    env_file:
+      - ./env1.env
+    container_name: marklogic1001
+    networks:
+        - default
+    environment:
+        MARKLOGIC_INIT: "true"
+        MARKLOGIC_ADMIN_USERNAME: ${_ML_ADMIN_USERNAME}
+        MARKLOGIC_ADMIN_PASSWORD: ${_ML_ADMIN_PASSWORD}
+        HOSTNAMES: marklogic1.server
+    ports:
+      - 8000-8002:8000-8002/tcp
+      - 8010-8050:8010-8050/tcp
+  ml-configure:
+    build:
+      context: .
+      dockerfile: ml-configure/Dockerfile
+    container_name: ml-configure
+    environment:
+      - 'MLHOST=marklogic1001'
+      - 'MLUSER=${_ML_ADMIN_USERNAME}'
+      - 'MLPWD=${_ML_ADMIN_PASSWORD}'
+    depends_on:
+      - marklogic1001
+networks:
+  default:
+    external:
+      name: ${_NETWORK_NAME}

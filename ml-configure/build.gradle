@@ -1,0 +1,8 @@
+plugins {
+    // Applies the Gradle properties plugin, which allows for different Gradle property values to be configured for
+    // different environments. Each properties file has a filename of "gradle-${environmentName}.properties", and an
+    // environment can be specified when running a Gradle task via e.g. "-PenvironmentName=prod" .
+    // For more information, see https://github.com/stevesaliman/gradle-properties-plugin .
+    id 'net.saliman.properties' version '1.5.1'
+    id "com.marklogic.ml-gradle" version "4.1.1"
+}

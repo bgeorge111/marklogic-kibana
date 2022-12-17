@@ -1,0 +1,8 @@
+# This file is where you define your pipelines. You can define multiple.
+# For more information on multiple pipelines, see the documentation:
+#   https://www.elastic.co/guide/en/logstash/current/multiple-pipelines.html
+
+- pipeline.id: error_pipe
+  path.config: "/usr/share/logstash/pipeline/marklogic-errorLog-pipeline.conf"
+- pipeline.id: access_pipe
+  path.config: "/usr/share/logstash/pipeline/marklogic-accessLog-pipeline.conf"  

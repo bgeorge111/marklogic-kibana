@@ -1,189 +1,53 @@
 # marklogic-kibana
-This sets up MarkLogic and the components of the ELK (ElasticSearch - Logstash - Kibana) stack to demonstrate how MarkLogic logs can be analysed in Kibana. 
+## Objective
+ * Quickly set up a MarkLogic server and the ELK (Elastic - Logstash - Kibana) components to demonstrate how MarkLogic logs can be analysed in Kibana. The built-in configuration reads the log files 8000_ErrorLog.txt, 8011_ErrorLog.txt and 8011_AccessLog.txt. 
+     
+# Setting up the environment 
 
-# Requirements 
-1. Docker 
-2. Docker compose 
+## Step 0 :: Pre-requisites 
+* docker with docker-compose
+* Understanding of the structure of docker-compose (required if changes to defaults are required) 
+* Understanding of the filebeat, logstash, elasticsearch and kibana configurations (required if changes to defaults are required) 
+* Internet connectivity
 
-# Usage 
- 
-1. Download or fork the source code
-2. At the project root, run mvn clean install 
-3. The archive file (.nar) will be created in the `<root>/target` folder 
+## Step 1 :: Create a network 
+* Create a network using the below docker command. Keep the network name as demo-nw. If you want to change, make changes to env1.env file in the root. <br>
+ ``` docker network create demo-nw ```
+## Step 2 :: Review the configurations (Optional)
+* The default configurations should be fine in most cases. But, in case of possible port conflicts etc, take a look \*-compose.yml files. 
 
-*If you do not want to build locally, the archive file .nar file can be downloaded and installed. See the instructions below.*
+## Step 3 :: Build the environment 
+* Run the below docker command from the ``` root ``` folder <br>
+``` docker-compose --env-file env1.env –f marklogic-compose.yml -f elastic-compose.yml up –d –build ``` <br>
+If all good, four containers will be running 
+* marklogic1001 _(MarkLogic server with myadmin/myadmin as admin credentials and BASIC as the authentication mechanism) _
+* logstash
+* elasticsearch
+* kibana 
 
-# Install the connector and Run
-1. Download the .nar archive file
-2. Copy to a convenient location where pulsar is installed or running (Ex. <pulsar installation folder>/connectors 
-3. Build the json configuration file marklogic-sink.json 
-4. (Optional) If there is a MarkLogic connector that is already running, delete using
- 
-   `bin/pulsar-admin sinks delete --name <connector name>`
-   `bin/pulsar-admin sources delete --name <connector name>` 
-5. Create the new connector using below command 
+Additionally, filebeat agent will be installed and started on the marklogic container. The different components and purpose are illustrated below
+![image](https://user-images.githubusercontent.com/68338060/208221697-7e1aa197-e644-4c89-aa8f-0580e0857029.png)
 
-	`bin/pulsar-admin sinks create --name <connector name> --archive <path to the .nar archive file> --inputs <source pulsar topic> --sink-config-file <path to the configuration file> --processing-guarantees EFFECTIVELY_ONCE`
+## Usage
+* Generate some log entries to the 8000 App server Ex. xdmp.log("Line1\nLine2", "errors") generates one multi-line entry to 8000_ErrorLog.txt. 
+* Since filebeat is already started in MarkLogic, the 8000_ErrorLog.txt is being pushed to logstash for aggregation. 
+* Access the Kibana UI at http://<name>:5601 
+* Go to Home -> Stack Management -> Kibana -> Index Patterns -> Create Index Pattern 
+	ml_8000_error as a index source will be available to create the pattern. 
+* Go to Home -> Analytics -> Discover to see the logs in Kibana. The multi-line MarkLogic logs will be already aggregated as a single entry in Kibana
+* Create Kibana dashboards as you wish. 
+
+## Configurations
+The configuration files of ELK stack is simple to understand. The default configurations should be ok for a simple demonstration of how MarkLogic multi-line logs can be brought into Kibana. Below are the configuration files involved 
 	
-	`bin/pulsar-admin sources create --name <connector name> --archive <path to the .nar archive file> ----destination-topic-name  <destination pulsar topic> --source-config-file <path to the configuration file>`
+Filebeat : 
+* ```marklogic/filebeat-error/filebeat.yml``` : example filebeat configuration for MarkLogic error log files
+* ```marklogic/filebeat-access/filebeat.yml``` : example filebeat configuration for MarkLogic access log files
+Logstash:
+* ```logstash/pipeline/marklogic-errorLog-pipeline.conf``` : example logstash pipeline configuration for MarkLogic error log files
+* ```logstash/pipeline/marklogic-accessLog-pipeline.conf``` : example logstash pipeline configuration for MarkLogic access log files
+* ```logstash/config/pipelines.yml``` : example logstash configuration to support multiple pipelines
 
-*There are other options for pulsar-admin. Please see apache pulsar documentation for details.*
-
-# Configuring Sink Connector
-
-| Property      | Required | Description | Sink or Source | 
-| ----------- | ----------- | ---------- | --------------- | 
-| mlConnectionHost    | true       | The MarkLogic host that the connector connects to | Both |
-| mlConnectionPort    | true       | The MarkLogic app server port that the connector connects to | Both |
-| mlDatabase    | true       | The MarkLogic database that the connector connects to | Both |
-| mlSecurityContext    | true       | The MarkLogic Security Context to create - digest, basic, certificate | Both |
-| mlUserName    | true       | Name of MarkLogic user to authenticate as | Both |
-| mlPassword    | true       | Password for the MarkLogic user | Both |
-| mlConnectionType    | true       | Connection Type; DIRECT or GATEWAY | Both |
-| mlSimpleSSL    | false       | Set to true to use a trust-everything SSL connection | Both |
-| mlPathToCertFile    | false       | Path to the certificate file for certificate authentication | Both |
-| mlPasswordForCertFile    | false       | Password for the certificate file | Both |
-| mlExternalName    | false       | External name for Kerberos authentication | Both |
-| dmsdkBatchSize    | false       | Number of documents to write in each batch of DMSDK. Default is 1 | Both |
-| dmsdkThreadCount    | false       | Number of threads for DMSDK to use. Default is 1 | Both |
-| dmsdkTransform    | false       | Name of a REST transform to use when writing documents. Refer MarkLogic documentation on installing REST Transforms | Both |
-| dmsdkTransformParams    | false       | Delimited set of transform parameter names and values | Both |
-| dmsdkTransformParamDelimiter    | false       | Delimiter for transform parameter names and values; defaults to a comma | Both |
-| mlAddTopicAsCollections    | false       | Indicates if the topic name should be added to the set of collections for a document | Sink |
-| mlDocumentCollections    | false       | Comma delimited collections to add each document to | Sink |
-| mlDocumentFormat    | true       | Defines format of each document; can be one of json, xml, text, binary, or unknown | Sink |
-| mlDocumentMimeType    | false       | Defines the mime type of each document; typically format is set instead of mime type | Sink |
-| mlDocumentPermissions    | false       | Comma delimited permissions to add to each document; role1,capability1,role1,capability2,role2,capability1 | Sink |
-| mlDocumentURIPrefix    | false       | Prefix to prepend to each generated URI Ex. /pulsar-data/mytopic | Sink |
-| mlDocumentURISuffix    | false       | Suffix to append to each generated URI Ex. .json | Sink |
-| dhfFlowName | false | The flow that has to be run on ingest | Sink | 
-| dhfFlowSteps | false | The flow steps that needs to be run. Multiple steps can be comma separated. Ex. 2,3 | Sink | 
-| dhfType    | false       | Whether the data hub framework is DHS or onprem/cloud. Valid values are dhs, onprem, cloud. This has effect only if dhfFlowName is set | Sink |
-| dhfProperties | false | Whether to apply default properties to build hubConfig. For example, if dhfType=dhs and dhfProperties=default, then there are no other hub configuration properties are required. Valid values are 'default' and 'custom'. This has effect only if dhfFlowName is set  | Sink | 
-| dhfPropertiesPath | false | The properties file from which the hub Properties are to be loaded. This should be an absolute path and has effect only if dhfFlowName is set. | Sink | 
-| mlSSL    | false       | Whether a custom SSL connection to the App server like mutual Auth. The dependency on this will be eliminated in future| Both |
-| mlHostNameVerifier    | false       | The strictness of Host Verifier - ANY, COMMON, STRICT | Both |
-| mlSSLMutualAuth    | false       | Mutual Authentication for Basic or Digest: true or false | Both |
-| mlIdStrategyForURI    | false       | The ID Strategy for URI. UUID,JSONPATH,HASH,PULSAR_META_WITH_SLASH, PULSAR_META_HASHED. Default is UUID| Sink |
-| mlIdStrategyPath    | false       | The JSON path for ID Strategy | Sink |
-| dmsdkSourceQuery | true | The Source query that is used to pull the records in a Batch. See an example below for a raw query | Source | 
-| dmsdkIsSourceQuerySerialized | true | Is the Source query a raw CTS query or a serialized Query | Source | 
-| batchSourceConfig.discoveryTriggererClassName | true | The class that implements the Batch job triggerer. Default is com.marklogic.pulsar.config.CronTriggerer. | Source | 
-| batchSourceConfig.discoveryTriggererConfig.__CRON__ | true | The cron expression to schedule the Source batch job. Ex. 0 0/5 * * * ? | Source |  
-
-
-# URI generation strategies (Applies only for Sink connector)
-MarkLogic Uris are to be unique. If a conflicting URI is generated, there would be silent overwrite of documents. If the conflicting URIs are in the same batch (when you have dmsdkBatchSize > 1), then there would be errors generated due to conflicting updates. You have a few options listed below to choose your URI generation strategy. Choose the option that best fits you for generating unique URIs. The final URI generated will be 
-{mlDocumentURIPrefix}/{ID generated from mlIdStrategyForURI}/{mlDocumentURISuffix}
-| Value      | Description | Example | 
-| ---------- | ----------- | ------- |
-| UUID | A system generated unique identifier. If you are not sure about your data, then this will be your best option. This is also the default option. | |
-| JSONPATH | Choose a qualified JSON path for generating the ID. | If your document is <br> `{ "Customer" : { "id" : 10001, "name" : "Tim"}}` <br> and if the configuration properties are set as  `"mlDocumentURIPrefix" : "/pulsar-data"`<br> `"mlDocumentURISuffix" : ".json"` <br> `"mlIdStrategyForURI" : "JSONPATH"` <br> `"mlIdStrategyPath" : "/Customer/id"`, the URI that would be generated will be  <br> `/pulsar-data/10001.json`. <br> Note that if "id" is not unique, URIs generated will not be unique. If multiple JSON Paths are provided, then only the first one will be used. | 
-| HASH | A MD5 hash of the values from all the JSON Paths provided. |  If your document is <br> `{ "Customer" : { "id" : 10001, "name" : "Tim"}}` <br> and if the configuration properties are set as  `"mlDocumentURIPrefix" : "/pulsar-data"`<br> `"mlDocumentURISuffix" : ".json"` <br> `"mlIdStrategyForURI" : "HASH"` <br> `"mlIdStrategyPath" : "/Customer/id, /Customer/name"`, the URI that would be generated will be  <br> `/pulsar-data/eba24f0e1c9e3363f0c4f5bcb3317946.json`. <br> Here `eba24f0e1c9e3363f0c4f5bcb33179461` is the MD5 hash value of `10001Tim`.  Note that if hashed value is not unique, URIs generated will not be unique. Multiple JSON Paths can be used, separated by comma
-| PULSAR_META_WITH_SLASH | The URI generated will be having the topic, partitition and sequence number of the message. | For example, if the pulsar topic is persistent://public/default/marklogic-topic, the partition is marklogic-topic-0 and sequence number of message is 48792, and the below configuration properties are set  `"mlDocumentURIPrefix" : "/pulsar-data"`<br> `"mlDocumentURISuffix" : ".json"` <br> `"mlIdStrategyForURI" : "PULSAR_META_WITH_SLASH"` then the URI of the message is <br>`/pulsar-data/persistent/public/default/marklogic-topic/marklogic-topic-0/48792.json` <br> This strategy should ideally generate unique URIs, but note that it depends on the Pulsar's capability to generate unique sequence numbers within in a topic partition. Note that the `persistent://` in topic's URI is changed to `persistent/` |
-| PULSAR_META_HASHED | The URI generated will be the hashed value of topic, partition and sequence number. |  For example, if the pulsar topic is `persistent://public/default/marklogic-topic`, the partition is `marklogic-topic-0` and sequence number of message is `48792`, and the below configuration properties are set  `"mlDocumentURIPrefix" : "/pulsar-data"`<br> `"mlDocumentURISuffix" : ".json"` <br> `"mlIdStrategyForURI" : "PULSAR_META_HASHED"` <br> then the URI of the message is <br>`/pulsar-data/9cdfc945708835835da746a35c5a7fca.json` <br> where `9cdfc945708835835da746a35c5a7fca` is the MD5 hash value of `persistent://public/default/marklogic-topicmarklogic-topic-048792` <br> This strategy should ideally generate unique URIs, but note that it depends on the Pulsar's capability to generate unique sequence numbers within in a topic partition.
-
-
-# Sink Configuration Example
-	{"configs" : {
-	"mlConnectionHost" :  "mydomainpart1.mydomainpart2.a.marklogicsvc.com",
-	"mlConnectionPort" :  8010,
-	"mlDatabase" :  "data-hub-STAGING",
-	"mlSecurityContext" :  "BASIC",
-	"mlUserName" :  "dh-admin-1",
-	"mlPassword" :  "mypwd",
-	"mlConnectionType" :  "GATEWAY",
-	"mlSimpleSSL" :  "true",
-	"mlPathToCertFile" :  "",
-	"mlPasswordForCertFile" :  "",
-	"mlExternalName" :  "",
-	"mlHostNameVerifier" :  "ANY",
-	"mlTlsVersion" :  "TLSv1.2",
-	"mlSSLMutualAuth" :  "false",
-	"dmsdkBatchSize" :  1,
-	"dmsdkThreadCount" :  10,
-	"dmsdkTransform" :  "",
-	"dmsdkTransformParams" :  "",
-	"mlDocumentCollections" :  "coll-1wayauth-strict",
-	"mlDocumentFormat" :  "JSON",
-	"mlDocumentMimeType" :  "",
-	"mlDocumentPermissions" :  "rest-reader,read,rest-writer,update",
-	"mlDocumentURIPrefix" :  "/pulsar-data/1wayauth/strict/",
-	"mlDocumentURISuffix" :  ".json",
-	"mlIdStrategyForURI" : "JSONPATH",
-	"mlIdStrategyPath" : "/CustomerInfo/key",
-	"mlAddTopicAsCollections" : "true"
-	}
-	}
 	
-# Sink Configuration with DHF (DHS) 
 
-	{
-	    "configs": {
-		"mlConnectionHost": "myDomain",
-		"mlConnectionPort": 8010,
-		"mlDatabase": "data-hub-STAGING",
-		"mlSecurityContext": "BASIC",
-		"mlUserName": "dh-admin-1",
-		"mlPassword": "MarkLogic*001",
-		"mlConnectionType": "GATEWAY",
-		"mlSimpleSSL": "true",
-		"mlPathToCertFile": "",
-		"mlPasswordForCertFile": "",
-		"mlExternalName": "",
-		"mlHostNameVerifier": "ANY",
-		"mlTlsVersion": "TLSv1.2",
-		"mlSSLMutualAuth": "false",
-		"dmsdkBatchSize": 50,
-		"dmsdkThreadCount": 10,
-		"dmsdkTransform": "insertTSTransform",
-		"dmsdkTransformParams": "",
-		"mlDocumentCollections": "customers",
-		"mlDocumentFormat": "JSON",
-		"mlDocumentMimeType": "",
-		"mlDocumentPermissions": "rest-reader,read,rest-writer,update",
-		"mlDocumentURIPrefix": "/pulsar-data/1wayauth/strict/",
-		"mlDocumentURISuffix": ".json",
-		"mlIdStrategyForURI": "JSONPATH",
-		"mlIdStrategyPath": "/CustomerInfo/key",
-		"mlAddTopicAsCollections": "true",
-		"dhfType": "dhs",
-		"dhfProperties": "default",
-		"dhfPropertiesPath": "",
-		"dhfFlowName": "CustomerIngest",
-		"dhfFlowSteps": "2"
-	    }
-	}
-
-# Source Configuration Example
-	{
-	"batchSourceConfig": {
-		"discoveryTriggererClassName": "com.marklogic.pulsar.config.CronTriggerer",
-		"discoveryTriggererConfig": {
-		    "__CRON__": "0 0/5 * * * ?"
-		}
-	    },
-	    "className" : "com.marklogic.pulsar.MarkLogicSource",
-	"configs" : {
-	"mlConnectionHost" :  "myDomain.a.marklogicsvc.com",
-	"mlConnectionPort" :  8010,
-	"mlDatabase" :  "data-hub-STAGING",
-	"mlSecurityContext" :  "BASIC",
-	"mlUserName" :  "myuser",
-	"mlPassword" :  "mypassword",
-	"mlConnectionType" :  "GATEWAY",
-	"mlSimpleSSL" :  "true",
-	"mlPathToCertFile" :  "",
-	"mlPasswordForCertFile" :  "",
-	"mlExternalName" :  "",
-	"mlHostNameVerifier" :  "ANY",
-	"mlTlsVersion" :  "TLSv1.2",
-	"mlSSLMutualAuth" :  "false",
-	"dmsdkBatchSize" :  100,
-	"dmsdkThreadCount" :  10,
-	"dmsdkTransform" :  "CSVTransform",
-	"dmsdkTransformParams" :  "",
-	"dmsdkSourceQuery" : "cts.andQuery([cts.collectionQuery('customers'),cts.pathRangeQuery('//insertTS', '<', fn.currentDateTime()),cts.pathRangeQuery('//insertTS', '>=', fn.currentDateTime().subtract('PT5M'))])",
-	"dmsdkIsSourceQuerySerialized" : "false"
-	}
-	}
+	

@@ -43,11 +43,14 @@ The configuration files of ELK stack is simple to understand. The default config
 Filebeat : 
 * ```marklogic/filebeat-error/filebeat.yml``` : example filebeat configuration for MarkLogic error log files
 * ```marklogic/filebeat-access/filebeat.yml``` : example filebeat configuration for MarkLogic access log files
-Logstash:
+
+Logstash :
 * ```logstash/pipeline/marklogic-errorLog-pipeline.conf``` : example logstash pipeline configuration for MarkLogic error log files
 * ```logstash/pipeline/marklogic-accessLog-pipeline.conf``` : example logstash pipeline configuration for MarkLogic access log files
 * ```logstash/config/pipelines.yml``` : example logstash configuration to support multiple pipelines
 
-	
+MarkLogic : 
+* ```marklogic\start-marklogic.sh``` : Configuring and starting Filebeat on MarkLogic. Look for comment 'Install Filebeat agent.'. This section can be changed to other ways of installing (yum install etc) and running Filebeat (as a service). 
+	<br>_Note: This will be changed in future to avoid changes to the core start-marklogic.sh file._
 
 	
